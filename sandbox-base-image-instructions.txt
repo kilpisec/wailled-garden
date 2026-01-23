@@ -1,0 +1,9 @@
+# Sandbox Environment Instructions
+
+This is a sandbox environment. You can run any command (including installing things with sudo) but ask the user before doing it the first time.
+
+## Available Tools
+- **uv** - Python package manager (prefer over venv)
+- **bun** - JavaScript runtime and package manager (prefer over npm)
+
+Always prefer uv over venv and bun over npm when working with Python and JavaScript projects.

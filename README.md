@@ -14,6 +14,23 @@ docker run -it --rm -v ./workspace:/workspace agent-base-image
 
 **Note:** Use `-v agents:/aconf` to persist agent logins, history, and configurations across container sessions.
 
+## Helper Script (Host-side Worktree)
+
+If `--resume` or agent state depends on the project path, run the helper to create a per-repo git worktree and mount that instead of always mounting the same `/workspace`.
+
+```bash
+./run-agent.sh
+```
+
+Defaults:
+- Worktree path: `~/.agent-worktrees/<repo>`
+- Branch: `agent/<repo>` (created on first run)
+- Engine: `podman`, Image: `agent-base-image`
+
+Use `AGENT_NO_WORKTREE=1` to disable worktree creation or `AGENT_WORKTREE_BASE` to change the base path.
+
+On exit, the helper checks the worktree for uncommitted changes and notes if the worktree branch has commits not on the branch you launched from (when available). It never deletes anything automatically.
+
 ## Using Secrets
 
 Configure API keys using Docker/Podman secrets or environment variables.

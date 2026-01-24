@@ -1,7 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-engine="${AGENT_ENGINE:-podman}"
+# Detect container engine: use AGENT_ENGINE if set, otherwise auto-detect
+if [ -n "${AGENT_ENGINE:-}" ]; then
+  engine="$AGENT_ENGINE"
+elif command -v podman &>/dev/null; then
+  engine="podman"
+elif command -v docker &>/dev/null; then
+  engine="docker"
+else
+  echo "error: neither podman nor docker is installed" >&2
+  echo "please install one of them to run agent containers" >&2
+  exit 1
+fi
 image="${AGENT_IMAGE:-agent-base-image}"
 config_volume="${AGENT_CONFIG_VOLUME:-agents}"
 worktree_base="${AGENT_WORKTREE_BASE:-$HOME/.agent-worktrees}"

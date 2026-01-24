@@ -25,9 +25,13 @@ If `--resume` or agent state depends on the project path, run the helper to crea
 Defaults:
 - Worktree path: `~/.agent-worktrees/<repo>`
 - Branch: `agent/<repo>` (created on first run)
-- Engine: `podman`, Image: `agent-base-image`
 
-Use `AGENT_NO_WORKTREE=1` to disable worktree creation or `AGENT_WORKTREE_BASE` to change the base path.
+Options:
+- `AGENT_ENGINE` - the container engine (default `podman`)
+- `AGENT_IMAGE` - the container image (default `agent-base-image`)
+- `AGENT_CONFIG_VOLUME` - the config volume name (default `agents`)
+- `AGENT_WORKTREE_BASE` - the base worktree path (default `~/.agent-worktrees`)
+- `AGENT_NO_WORKTREE=1` - disable worktree creation
 
 On exit, the helper checks the worktree for uncommitted changes and notes if the worktree branch has commits not on the branch you launched from (when available). It never deletes anything automatically.
 

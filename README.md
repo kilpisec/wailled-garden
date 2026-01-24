@@ -1,22 +1,29 @@
-# AI Agent Base Image
+# wAIlled garden - AI Agent Base Image
 
-Base Docker image with OpenAI, Anthropic Claude Code, and Google Gemini CLI tools.
+Base docker image with OpenAI, Anthropic Claude Code, and Google Gemini CLI tools.
+
+Project also includes helper scripts to quickly create a worktree and jump into the container.
 
 ## Quick Start
+
+You can use the container directly like this.
 
 ```bash
 # With persistent agent configuration
 docker run -it --rm -v agents:/aconf -v ./workspace:/workspace agent-base-image
 
-# Without persistence (configurations lost on exit)
+# Without persistence (configurations lost on exit, you will need to authenticate unless you pass API keys as env variables)
 docker run -it --rm -v ./workspace:/workspace agent-base-image
 ```
+## Inside the container
 
-**Note:** Use `-v agents:/aconf` to persist agent logins, history, and configurations across container sessions.
+- `codex` and `gemini` will be installed and run on demand with `bunx` to ensure they are the latest versions. `claude` is a standalone nowadays and handles that itself.
+- `codex`  is aliased to `codex-wrapper.sh`, a little wrapper to default to --device-auth if we don't have auth.json because codex normal oauth is really buggy. 
 
-## Helper Script (Host-side Worktree)
 
-If `--resume` or agent state depends on the project path, run the helper to create a per-repo git worktree and mount that instead of always mounting the same `/workspace`.
+## run-agent.sh
+
+Or you can use the helper script that will prompt you for a worktree and create that for ensuring the agent does not wreack too much havoc.
 
 ```bash
 ./run-agent.sh
@@ -27,74 +34,13 @@ Defaults:
 - Branch: `agent/<repo>` (created on first run)
 - Engine: `podman`, Image: `agent-base-image`
 
-Use `AGENT_NO_WORKTREE=1` to disable worktree creation or `AGENT_WORKTREE_BASE` to change the base path.
 
 On exit, the helper checks the worktree for uncommitted changes and notes if the worktree branch has commits not on the branch you launched from (when available). It never deletes anything automatically.
 
-## Using Secrets
-
-Configure API keys using Docker/Podman secrets or environment variables.
-
-### Docker Secrets
-
-Create secret files:
-```bash
-echo "your-openai-key" > openai_api_key.txt
-echo "your-anthropic-key" > anthropic_api_key.txt
-echo "your-google-key" > google_api_key.txt
-```
-
-Run with secrets:
-```bash
-docker run -it \
-  --secret openai_api_key,src=openai_api_key.txt \
-  --secret anthropic_api_key,src=anthropic_api_key.txt \
-  --secret google_api_key,src=google_api_key.txt \
-  agent-base-image
-```
-
-### Podman Secrets
-
-Create secrets:
-```bash
-podman secret create openai_api_key openai_api_key.txt
-podman secret create anthropic_api_key anthropic_api_key.txt
-podman secret create google_api_key google_api_key.txt
-```
-
-Run with secrets:
-```bash
-podman run -it \
-  --secret openai_api_key \
-  --secret anthropic_api_key \
-  --secret google_api_key \
-  agent-base-image
-```
-
-### Environment Variables
-
-```bash
-docker run -it \
-  -e OPENAI_API_KEY="your-key" \
-  -e ANTHROPIC_API_KEY="your-key" \
-  -e GOOGLE_API_KEY="your-key" \
-  agent-base-image
-```
-
 ## Agent Configurations
 
-The container stores agent configurations in `/aconf` which is symlinked to `/home/agent/`:
+The container persists agent configuration and history in `/aconf` which is symlinked to `/home/agent/` on startup:
 - `/aconf/.claude` → `/home/agent/.claude`
 - `/aconf/.codex` → `/home/agent/.codex`
 - `/aconf/.gemini` → `/home/agent/.gemini`
 - `/aconf/.claude.json` → `/home/agent/.claude.json`
-
-Use a named volume to persist across sessions:
-```bash
-docker run -it --rm -v agents:/aconf agent-base-image
-```
-
-## CLI Aliases
-
-- `claude` - runs `bunx @anthropic-ai/claude-code`
-- `codex` - runs `bunx @anthropic-ai/codex`

@@ -41,11 +41,12 @@ if [ -n "$repo_root" ] && [ -z "$disable_worktree" ]; then
   project_name="$(basename "$repo_root")"
 
   # Prompt for worktree name (allows multiple sessions per project)
+  default_worktree="$project_name-agent-worktree"
   if [ -t 0 ]; then
-    read -r -p "Worktree name [$project_name]: " worktree_input
-    if [ -n "$worktree_input" ]; then
-      project_name="$worktree_input"
-    fi
+    read -r -p "Worktree name [$default_worktree]: " worktree_input
+    project_name="${worktree_input:-$default_worktree}"
+  else
+    project_name="$default_worktree"
   fi
 
   mount_dir="$worktree_base/$project_name"

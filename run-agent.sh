@@ -54,42 +54,59 @@ if [ -n "$repo_root" ] && [ -z "$disable_worktree" ]; then
   # Prompt for worktree name (allows multiple sessions per project)
   default_worktree="$project_name-agent-worktree"
   if [ -t 0 ]; then
-    read -r -p "Worktree name [$default_worktree]: " worktree_input
-    project_name="${worktree_input:-$default_worktree}"
+    read -r -p "Worktree name [$default_worktree] (or '-' for main repo): " worktree_input
+    if [ "$worktree_input" = "-" ]; then
+      # Explicit opt-out - disable worktree mode
+      disable_worktree=1
+      mount_dir="$repo_root"
+    elif [ -z "$worktree_input" ]; then
+      # Empty input - use default worktree name
+      project_name="$default_worktree"
+    else
+      # Custom worktree name
+      project_name="$worktree_input"
+    fi
   else
     project_name="$default_worktree"
   fi
 
-  mount_dir="$worktree_base/$project_name"
-  branch="agent/$project_name"
-  base_branch="$(git -C "$repo_root" symbolic-ref -q --short HEAD 2>/dev/null || true)"
+  # Only create worktree if not disabled
+  if [ -z "$disable_worktree" ]; then
+    mount_dir="$worktree_base/$project_name"
+    branch="agent/$project_name"
+    base_branch="$(git -C "$repo_root" symbolic-ref -q --short HEAD 2>/dev/null || true)"
 
-  if [ -d "$mount_dir" ]; then
-    if ! git -C "$repo_root" worktree list --porcelain | grep -Fq "worktree $mount_dir"; then
-      echo "error: $mount_dir exists but is not a git worktree for $repo_root" >&2
-      exit 1
-    fi
-  else
-    mkdir -p "$worktree_base"
-    if git -C "$repo_root" show-ref --verify --quiet "refs/heads/$branch"; then
-      git -C "$repo_root" worktree add "$mount_dir" "$branch"
+    if [ -d "$mount_dir" ]; then
+      if ! git -C "$repo_root" worktree list --porcelain | grep -Fq "worktree $mount_dir"; then
+        echo "error: $mount_dir exists but is not a git worktree for $repo_root" >&2
+        exit 1
+      fi
     else
-      git -C "$repo_root" worktree add -b "$branch" "$mount_dir"
+      mkdir -p "$worktree_base"
+      if git -C "$repo_root" show-ref --verify --quiet "refs/heads/$branch"; then
+        git -C "$repo_root" worktree add "$mount_dir" "$branch"
+      else
+        git -C "$repo_root" worktree add -b "$branch" "$mount_dir"
+      fi
     fi
+
+    # Set up git mounts for container - the worktree's .git file points to host paths
+    # so we need to mount the main .git dir and provide a corrected .git file
+    worktree_name="$(basename "$mount_dir")"
+    git_file="$(mktemp)"
+    echo "gitdir: /repo-git/worktrees/$worktree_name" > "$git_file"
+    run_args+=(-v "$repo_root/.git:/repo-git")
+    run_args+=(-v "$git_file:/workspace/$project_name/.git:ro")
+
+    # Also fix the gitdir file that points back to the worktree
+    gitdir_file="$(mktemp)"
+    echo "/workspace/$project_name/.git" > "$gitdir_file"
+    run_args+=(-v "$gitdir_file:/repo-git/worktrees/$worktree_name/gitdir:ro")
+  else
+    # Working directly in main repo - set up simple git mount
+    project_name="$(basename "$repo_root")"
+    run_args+=(-v "$repo_root/.git:/workspace/$project_name/.git")
   fi
-
-  # Set up git mounts for container - the worktree's .git file points to host paths
-  # so we need to mount the main .git dir and provide a corrected .git file
-  worktree_name="$(basename "$mount_dir")"
-  git_file="$(mktemp)"
-  echo "gitdir: /repo-git/worktrees/$worktree_name" > "$git_file"
-  run_args+=(-v "$repo_root/.git:/repo-git")
-  run_args+=(-v "$git_file:/workspace/$project_name/.git:ro")
-
-  # Also fix the gitdir file that points back to the worktree
-  gitdir_file="$(mktemp)"
-  echo "/workspace/$project_name/.git" > "$gitdir_file"
-  run_args+=(-v "$gitdir_file:/repo-git/worktrees/$worktree_name/gitdir:ro")
 fi
 
 container_name="$(printf '%s' "$project_name" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9_.-' '-')"
